@@ -33,6 +33,7 @@ bootstrap:
         wal_log_hints: "on"
         archive_mode: "on"
         archive_command: "/usr/bin/true"
+        wal_keep_segments: 128
         shared_preload_libraries: 'pg_stat_statements'
         synchronous_commit: 'on'
         track_activities: "on"
@@ -52,6 +53,7 @@ bootstrap:
       - host all zeus 127.0.0.1/32 scram-sha-256
       - host all zeus 178.128.42.130/32 scram-sha-256
       - host all zeus 46.101.53.213/32 scram-sha-256
+      - host all pgbouncer 138.68.133.92/32 md5
       - host replication replicauser 127.0.0.1/32 scram-sha-256
       - host replication replicauser 178.128.42.130/32 scram-sha-256
       - host replication replicauser 46.101.53.213/32 scram-sha-256
