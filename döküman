@@ -1,0 +1,458 @@
+# patroni_env.conf > parolalar bu alana taşınmalı mı?
+# Parametreleri anlat
+# patroni.yml ayarlarını geliştir > Bağlantıları otomatik SSL oluşturmaya çalışacağım.
+# etcd ve haproxy ayarlarını düzenle ve geliştir
+# trust lardan kurtulmaya çalış
+# Belge son haline geldiğinde IP'leri kaldır.
+
+
+
+Patroni, PostgreSQL için yüksek erişilebilirlik çözümleri sunar....
+
+Bu belgede HAProxy sunucusu, ETCD sunucusu, PostgreSQL sunucusu, Replikasyon sunucusu olarak dört sunucu kullanılmıştır.
+
+1) PostgreSQL sunucusu:178.128.42.130
+2) Replikasyon sunucusu:46.101.53.213
+3) ETCD sunucusu:138.68.137.54
+4) HAProxy sunucusu:138.68.133.92
+
+Ayrıca kurulum için belirlediğimiz dosya yolları PostgreSQL'in paket kurulumunda kullanılan yerler ile aynıdır.
+
+ETCD nedir?
+Primary kim?
+
+HAProxy nedir?
+Load balancer
+
+Patroni ile oluşturulan tüm cluster üyeleri, etcd sunucusuna gider ve liderin kim olduğunu sorar. Bu şekilde lidere ulaşılamadığı durumlarda otomatik olarak failover gerçekleştirebilir.
+
+KURULUM:
+
+Öncelikle aşağıdaki sunuculara gerekli paketleri yükleyelim ve sırasıyla aşağıdaki adımları takip edelim:
+
+
+TÜM SUNUCULAR:
+yum install epel-release -y
+
+ETCD SUNUCUSU
+
+İlk adım olarak "etcd" paketini yükleyelim:
+yum install etcd -y
+
+Daha sonra "/etc/etcd/etcd.conf" dosyasında bulunan parametreleri aşağıdaki gibi değiştirelim:
+ETCD_DATA_DIR="/var/lib/etcd/pg.etcd"
+
+# ETCD_LISTEN_PEERS is the socket etcd will listen for ETCD PEERS
+ETCD_LISTEN_PEER_URLS="http://138.68.137.54:2380"
+
+# ETCD_LISTEN_CLIENT_URLS is the socket etcd will listen for CLIENTS
+ETCD_LISTEN_CLIENT_URLS="http://localhost:2379,http://138.68.137.54:2379"
+
+ETCD_NAME="pg"
+
+# This is the address of the node being initialized, where it will listening for peers, can't use localhost here
+ETCD_INITIAL_ADVERTISE_PEER_URLS="http://138.68.137.54:2380"
+
+# Advertising the client url that this node will be listening on
+ETCD_ADVERTISE_CLIENT_URLS="http://138.68.137.54:2379"
+
+#This needs to list all the peers in the format "nodeName=ipaddress:2380,..,.."
+ETCD_INITIAL_CLUSTER="pg=http://138.68.137.54:2380"
+
+# The name of the cluster being spun up, so we don't accidently put nodes in the wrong place
+ETCD_INITIAL_CLUSTER_TOKEN="postgres"
+
+#This should be set to 'new' creating a brand new cluster, and 'existing' when adding to a preexisitng cluster
+ETCD_INITIAL_CLUSTER_STATE="new"
+
+Servisi başlatalım ve başlangıçta çalışmaya hazır hale getirelim:
+systemctl enable --now etcd.service
+
+
+PostgreSQL SUNUCULARI:
+yum install https://download.postgresql.org/pub/repos/yum/11/redhat/rhel-7-x86_64/pgdg-centos11-11-2.noarch.rpm -y
+yum install postgresql11-server postgresql11-contrib gcc python python-devel python-pip python-etcd -y
+pip install --upgrade setuptools
+pip install patroni
+pip install psycopg2-binary
+
+Patroni'nin kullanacağı ayarların bulunduğu "/etc/patroni" dizinimizi oluşturalım:
+mkdir -m 700 /etc/patroni
+
+Patroni'nin initdb aşamasından sonra çalıştırabileceği bir script oluşturabiliriz. (Eğer bu scriptin çalışmasını istiyorsak, oluşturacağımız "patroni.yml" dosyasındaki "post_init" parametresinin başındak yorumu kaldırmalıyız.)
+touch 700 /etc/patroni/postinit.sh
+
+#!/usr/bin/bash
+# The script should be:
+# Executable by Patroni
+# should exit with code 0, otherwise Patroni thinks that it failed
+
+/usr/pgsql-11/bin/psql -q -At -c 'SELECT 1;'
+
+if [ $? != 0 ]; then
+  psql -c 'CREATE EXTENSION pg_stat_statements;'
+  exit 0;
+fi
+
+
+Patroni'nin kullanacağı ayarları bulunduran "patroni.yml" dosyasını oluşturalım:
+touch 600 /etc/patroni/patroni.yml
+
+scope: postgres
+namepace: /db/
+name: db-primary
+
+log:
+  dir: /var/log/patroni
+
+restapi:
+  listen: 0.0.0.0:8008
+  connect_address: 178.128.42.130:8008
+
+etcd:
+  host: 138.68.137.54:2379
+#   username:
+#   password:
+
+bootstrap:
+  dcs:
+    ttl: 30
+    loop_wait: 10
+    retry_timeout: 10
+    maximum_lag_on_failover: 1048576
+
+    postgresql:
+      use_pg_rewind: true
+      use_slots: true
+      parameters:
+        password_encryption: "scram-sha-256"
+        log_line_prefix: "< user=%u db=%d host=%h pid=%p app=%a time=%m > "
+        wal_level: "logical"
+        wal_sync_method: "fdatasync"
+        wal_compression: "on"
+        wal_log_hints: "on"
+        archive_mode: "on"
+        archive_command: "/usr/bin/true"
+        shared_preload_libraries: 'pg_stat_statements'
+        synchronous_commit: 'on'
+        track_activities: "on"
+        track_counts: "on"
+        track_io_timing: "on"
+        track_functions: "all"
+        wal_compression: "on"
+        wal_log_hints: "on"
+        log_checkpoints: "on"
+        log_lock_waits: "on"
+        log_temp_files: 0
+        log_autovacuum_min_duration: 0
+
+      pg_hba:
+      - local all zeus trust
+      - local all all peer
+      - host all zeus 127.0.0.1/32 scram-sha-256
+      - host all zeus 46.101.53.213/32 scram-sha-256
+      - host replication replicauser 127.0.0.1/32 scram-sha-256
+      - host replication replicauser 46.101.84.31/32 scram-sha-256
+
+#  post_init: /etc/patroni/postinit.sh
+
+
+  initdb:
+  - encoding: UTF8
+  - data-checksums
+
+  users:
+    zeus:
+      password: ar3y0uG0d?
+      options:
+      - createrole
+      - createdb
+
+    replicauser:
+      password: r3pl!c@
+      options:
+      - replication
+
+    postgres:
+      password:
+      options:
+      - superuser
+
+postgresql:
+  use_unix_socket: true
+  listen: 0.0.0.0:5432
+  connect_address: 178.128.42.130:5432
+  data_dir: /var/lib/pgsql/11/data
+  config_dir: /var/lib/pgsql/11/data
+  pgpass: /var/lib/pgsql/.pgpass
+  bin_dir: /usr/pgsql-11/bin
+
+  authentication:
+    replication:
+      username: replicauser
+      password: r3pl!c@
+    superuser:
+      username: zeus
+      password: ar3y0uG0d?
+
+  parameters:
+    random_page_cost: 2.0
+
+tags:
+  nofailover: false
+  noloadbalance: false
+  clonefrom: false
+  nosync: false
+
+Burada kullanıdığımız bazı parametrelerin açıklamaları şu şekilde:
+
+özellikle bootstrap.dcs açıkla
+
+Patroni için log dosyalarının tutulacağı bir dizin yaratalım ve sahipliğini "postgres" Linux kullanıcısına verelim:
+mkdir -m 700 /var/log/patroni
+chown postgres: /var/log/patroni
+
+Daha sonra oluşturduğumuz "patroni.yml" dosyasını kullanacak "patroni.service" adında bir servis oluşturalım:
+touch 644 /etc/systemd/system/patroni.service
+
+# This is an example systemd config file for Patroni
+# You can copy it to "/etc/systemd/system/patroni.service",
+
+[Unit]
+Description=Runners to orchestrate a high-availability PostgreSQL
+After=syslog.target network.target
+
+[Service]
+Type=simple
+
+User=postgres
+Group=postgres
+
+# Read in configuration file if it exists, otherwise proceed
+EnvironmentFile=-/etc/patroni/patroni_env.conf
+
+WorkingDirectory=~
+
+# Where to send early-startup messages from the server
+# This is normally controlled by the global default set by systemd
+#StandardOutput=syslog
+
+# Pre-commands to start watchdog device
+# Uncomment if watchdog is part of your patroni setup
+#ExecStartPre=-/usr/bin/sudo /sbin/modprobe softdog
+#ExecStartPre=-/usr/bin/sudo /bin/chown postgres /dev/watchdog
+
+# Start the patroni process
+ExecStart=/usr/bin/patroni /etc/patroni/patroni.yml
+
+# Send HUP to reload from patroni.yml
+ExecReload=/usr/bin/kill -s HUP $MAINPID
+
+# only kill the patroni process, not it's children, so it will gracefully stop postgres
+KillMode=process
+
+# Give a reasonable amount of time for the server to start up/shut down
+TimeoutSec=30
+
+# Do not restart the service if it crashes, we want to manually inspect database on failure
+Restart=no
+
+[Install]
+WantedBy=multi-user.target
+
+
+Servisi başlatalım ve başlangıçta çalışmaya hazır hale getirelim:
+systemctl enable --now patroni.service
+
+
+REPLIKASYON SUNUCUSU:
+
+scope: postgres
+namepace: /db/
+name: db-standby
+
+log:
+  dir: /var/log/patroni
+
+restapi:
+  listen: 0.0.0.0:8008
+  connect_address: 46.101.53.213:8008
+
+etcd:
+  host: 138.68.137.54:2379
+
+bootstrap:
+  dcs:
+    ttl: 30
+    loop_wait: 10
+    retry_timeout: 10
+    maximum_lag_on_failover: 1048576
+
+    postgresql:
+      use_pg_rewind: true
+      use_slots: true
+      parameters:
+        password_encryption: "scram-sha-256"
+        log_line_prefix: "< user=%u db=%d host=%h pid=%p app=%a time=%m > "
+        wal_level: "logical"
+        wal_sync_method: "fdatasync"
+        wal_compression: "on"
+        wal_log_hints: "on"
+        archive_mode: "on"
+        archive_command: "/usr/bin/true"
+        shared_preload_libraries: 'pg_stat_statements'
+        track_activities: "on"
+        track_counts: "on"
+        track_io_timing: "on"
+        track_functions: "all"
+        wal_compression: "on"
+        wal_log_hints: "on"
+        log_checkpoints: "on"
+        log_lock_waits: "on"
+        log_temp_files: 0
+        log_autovacuum_min_duration: 0
+
+      pg_hba:
+      - local all all peer
+      - host all zeus 127.0.0.1/32 trust
+      - host all zeus 46.101.53.213/32 scram-sha-256
+      - host all zeus 178.128.42.130/32 scram-sha-256
+      - host all zeus 46.101.84.31/32 scram-sha-256
+      - host replication replicauser 127.0.0.1/32 trust
+      - host replication replicauser 46.101.84.31/32 scram-sha-256
+      - host replication replicauser 46.101.53.213/32 scram-sha-256
+      - host replication replicauser 178.128.42.130/32 scram-sha-256
+
+  initdb:
+  - encoding: UTF8
+  - data-checksums
+
+  users:
+    zeus:
+      password: ar3y0uG0d?
+      options:
+      - createrole
+      - createdb
+
+    replicauser:
+      password: r3pl!c@
+      options:
+      - replication
+
+    postgres:
+      password:
+      options:
+      - superuser
+
+postgresql:
+  listen: 0.0.0.0:5432
+  connect_address: 46.101.53.213:5432
+  data_dir: /var/lib/pgsql/11/data
+  config_dir: /var/lib/pgsql/11/data
+  pgpass: /var/lib/pgsql/.pgpass
+  bin_dir: /usr/pgsql-11/bin
+
+  authentication:
+    replication:
+      username: replicauser
+      password: r3pl!c@
+    superuser:
+      username: zeus
+      password: ar3y0uG0d?
+
+  parameters:
+    random_page_cost: 2.0
+    unix_socket_directories: "/var/run/postgresql, /tmp"
+
+tags:
+  nofailover: false
+  noloadbalance: false
+  clonefrom: false
+  nosync: false
+
+
+
+
+HAPROXY SUNUCUSU
+
+HAProxy kurmak için gereken paketi yükleyelim:
+yum install haproxy -y
+
+Sonra "/etc/haproxy/haproxy.cfg" dosyasını aşağıdaki gibi düzenleyelim:
+
+global
+    maxconn 100
+
+defaults
+    log global
+    mode tcp
+    retries 2
+    timeout client 30m
+    timeout connect 4s
+    timeout server 30m
+    timeout check 5s
+
+listen stats
+    mode http
+    bind *:7000
+    stats enable
+    stats uri /
+
+listen postgres
+    bind *:5000
+    option httpchk
+    http-check expect status 200
+    default-server inter 3s fall 3 rise 2 on-marked-down shutdown-sessions
+    server db-primary 178.128.42.130:5432 maxconn 100 check port 8008
+    server db-standby 46.101.53.213:5432 maxconn 100 check port 8008
+
+
+Servisi başlatalım ve başlangıçta çalışmaya hazır hale getirelim:
+systemctl enable --now haproxy.service
+
+Eğer HAProxy servisi çalıştırılmak istendiğinde hata veriyorsa yazım yanlışlarını kontrol etmek için aşağıdaki komutu kullanabiliriz:
+haproxy -c -V -f /etc/haproxy/haproxy.cfg
+
+Tarayıcı üzerinden izlemek için:
+http://138.68.133.92:7000
+
+PATRONICTL KULLANIMI
+Patroni, oluşturduğumuz cluster'ları kontrol edebileceğimiz ve izleyebileceğimiz bir yönetim komutu barındırıyor. Bunu şu şekilde kullanabiliriz:
+
+patronictl <komut> <cluster-adı>
+
+(Switchover gibi işlemlerde komut kullanıldıktan sonra seçilen cluster içindeki üyeler gösterilecek ve yöneltilen sorularla hangi üyeye switchover yapılmasını istendiğini soracak)
+
+Patronictl'in hangi komutları kullanabileceğini söylemek için bir kısayol oluşturalım:
+patronictl configure
+rm -f ~/.config/patroni/patronictl.yaml
+ln -s /etc/patroni/patroni.yml ~/.config/patroni/patronictl.yaml
+
+Belirlenen cluster içerisindeki üyeleri görüntülemek için:
+patronictl list <cluster-adı>
+
+Switchover işlemi yapmak için:
+patronictl switchover <cluster-adı>
+
+Failover yapmak için:
+patronictl failover <cluster-adı>
+
+DCS içerisindeki ayarları görmek için:
+patronictl show-config <cluster-adı>
+
+DCS(Distributed Control System) ayarlarını düzenlemek için:
+patronictl edit-config <cluster-adı>
+
+(Bu komut bootstrap.dcs altındaki ayarları düzenler. Bu ayarlar tüm üyelere uygulanır.)
+
+Bir üyede komut çalıştırmak için:
+patronictl query -c "<çalıştırılacak-query>" <cluster-adı>
+
+Bir üyeyi yeniden başlatmak için:
+patronictl restart <cluster-adı>
+
+Otomatik failover'ı durdurmak için:
+patronictl pause <cluster-adı>
+
+Otomatik failover'ı devam ettirmek için:
+patronictl resume <cluster-adı>

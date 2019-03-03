@@ -1,6 +1,3 @@
-# This is an example systemd config file for Patroni
-# You can copy it to "/etc/systemd/system/patroni.service",
-
 [Unit]
 Description=Runners to orchestrate a high-availability PostgreSQL
 After=syslog.target network.target
@@ -12,7 +9,7 @@ User=postgres
 Group=postgres
 
 # Read in configuration file if it exists, otherwise proceed
-EnvironmentFile=-/etc/patroni_env.conf
+EnvironmentFile=-/etc/patroni/patroni_env.conf
 
 WorkingDirectory=~
 
@@ -26,12 +23,12 @@ WorkingDirectory=~
 #ExecStartPre=-/usr/bin/sudo /bin/chown postgres /dev/watchdog
 
 # Start the patroni process
-ExecStart=/bin/patroni /etc/patroni.yml
+ExecStart=/usr/bin/patroni /etc/patroni/patroni.yml
 
 # Send HUP to reload from patroni.yml
 ExecReload=/bin/kill -s HUP $MAINPID
 
-# only kill the patroni process, not it's children, so it will gracefully stop postgres
+# Only kill the patroni process, not it's children, so it will gracefully stop postgres
 KillMode=process
 
 # Give a reasonable amount of time for the server to start up/shut down

@@ -1,16 +1,9 @@
-
-postgresql
-use_unix_socket:true
-
-tmp de socket oluşmalı mı?
-
-log level ayarlanmalı
-
-
-mkdir -m 700 -p /var/log/patroni
-chown postgres: /var/log/patroni
-
-syncronus standby kur 1 tane
-
-
-patroni_env
+# patroni_env.conf > parolalar bu alana taşınmalı mı?
+# Parametreleri anlat
+# patroni.yml ayarlarını geliştir > Bağlantıları otomatik SSL oluşturmaya çalışacağım.
+# etcd ve haproxy ayarlarını düzenle ve geliştir
+# trust lardan kurtulmaya çalış
+# Belge son haline geldiğinde IP'leri kaldır.
+# pgbouncer ekle
+# haproxy master ve replika böl
+# https://www.linode.com/docs/databases/postgresql/create-a-highly-available-postgresql-cluster-using-patroni-and-haproxy/

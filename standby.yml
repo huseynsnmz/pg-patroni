@@ -1,6 +1,6 @@
 scope: postgres
 namepace: /db/
-name: db-standby
+name: standby
 
 log:
   dir: /var/log/patroni
@@ -11,6 +11,8 @@ restapi:
 
 etcd:
   host: 138.68.137.54:2379
+#   username:
+#   password:
 
 bootstrap:
   dcs:
@@ -33,7 +35,6 @@ bootstrap:
         archive_command: "/usr/bin/true"
         shared_preload_libraries: 'pg_stat_statements'
         synchronous_commit: 'on'
-        synchronous_standby_names: ANY 1 ("db-syncstandby","db-syncstandby2")
         track_activities: "on"
         track_counts: "on"
         track_io_timing: "on"
@@ -46,15 +47,17 @@ bootstrap:
         log_autovacuum_min_duration: 0
 
       pg_hba:
+      - local all zeus trust
       - local all all peer
-      - host all zeus 127.0.0.1/32 trust
-      - host all zeus 46.101.53.213/32 scram-sha-256
+      - host all zeus 127.0.0.1/32 scram-sha-256
       - host all zeus 178.128.42.130/32 scram-sha-256
-      - host all zeus 46.101.84.31/32 trust
+      - host all zeus 46.101.53.213/32 scram-sha-256
       - host replication replicauser 127.0.0.1/32 scram-sha-256
-      - host replication replicauser 46.101.84.31/32 scram-sha-256
-      - host replication replicauser 46.101.53.213/32 scram-sha-256
       - host replication replicauser 178.128.42.130/32 scram-sha-256
+      - host replication replicauser 46.101.53.213/32 scram-sha-256
+
+#  post_init: /etc/patroni/postinit.sh
+
 
   initdb:
   - encoding: UTF8
@@ -78,6 +81,7 @@ bootstrap:
       - superuser
 
 postgresql:
+  use_unix_socket: true
   listen: 0.0.0.0:5432
   connect_address: 46.101.53.213:5432
   data_dir: /var/lib/pgsql/11/data
@@ -95,7 +99,6 @@ postgresql:
 
   parameters:
     random_page_cost: 2.0
-    unix_socket_directories: "/var/run/postgresql, /tmp"
 
 tags:
   nofailover: false
