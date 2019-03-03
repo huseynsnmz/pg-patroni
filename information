@@ -1,0 +1,28 @@
+Replicas should have the following attributes available. This would be added as tags within the replica description, both in the API and in the SIS. If the tags are absent, default behavior remains the same; in the config, the tags below are set to True or False:
+
+**nofailover**: this replica should not be a candidate for automatic failover. Used for ephemeral replicas, and multi-replica setups where there are a few designated failover targets. If the tag is missing, the replica is assumed to be a failover target.
+
+**noloadbalance**: this replica should not be part of any load-balancing, if HAProxy autoconfig is being used.
+
+**clonefrom**: take basebackups from this replica _instead of_ from the master. If multiple CloneFrom replicals are available, one is randomly chosen for new basebackups. If cloning using WALE or other archival backup, this tag is ignored.
+
+**replicatefrom**: not true or false, but the IP address/hostname of another replica. Used to support cascading replication.
+
+----------------------------
+
+
+There are actually more places where you can configure it, just pick one and stick with it:
+
+    1. `bootstrap.pg_hba` -- this is the oldest one. The value from here is appended to pg_hba.conf right after initdb run and later never changed (even if you edit the config file)
+
+    2. `bootstrap.dcs.postrgesql.pg_hba` -- value from here is written into `/config` key into DCS. After that any node will take this value and write it into pg_hba.conf. Later you can use `patronictl edit-config` to change pg_hba on all nodes in the cluster.
+
+    3. `postrgesql.pg_hba` -- value from here will completely overwrite pg_hba.conf upon restart or reload of patroni.
+
+    4. `postgresql.parameters.hba_file`.
+
+
+If the `hba_file` if set, all other `pg_hba` parameters are ignored.
+`postrgesql.pg_hba` from the config file takes precedence over the value from the `DCS:/config` key.
+
+It is not really possible to merge pg_hba from different sources, because rules are aplpied line by line.

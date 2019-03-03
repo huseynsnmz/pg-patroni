@@ -1,0 +1,16 @@
+
+postgresql
+use_unix_socket:true
+
+tmp de socket oluşmalı mı?
+
+log level ayarlanmalı
+
+
+mkdir -m 700 -p /var/log/patroni
+chown postgres: /var/log/patroni
+
+syncronus standby kur 1 tane
+
+
+patroni_env

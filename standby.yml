@@ -1,0 +1,104 @@
+scope: postgres
+namepace: /db/
+name: db-standby
+
+log:
+  dir: /var/log/patroni
+
+restapi:
+  listen: 0.0.0.0:8008
+  connect_address: 46.101.53.213:8008
+
+etcd:
+  host: 138.68.137.54:2379
+
+bootstrap:
+  dcs:
+    ttl: 30
+    loop_wait: 10
+    retry_timeout: 10
+    maximum_lag_on_failover: 1048576
+
+    postgresql:
+      use_pg_rewind: true
+      use_slots: true
+      parameters:
+        password_encryption: "scram-sha-256"
+        log_line_prefix: "< user=%u db=%d host=%h pid=%p app=%a time=%m > "
+        wal_level: "logical"
+        wal_sync_method: "fdatasync"
+        wal_compression: "on"
+        wal_log_hints: "on"
+        archive_mode: "on"
+        archive_command: "/usr/bin/true"
+        shared_preload_libraries: 'pg_stat_statements'
+        synchronous_commit: 'on'
+        synchronous_standby_names: ANY 1 ("db-syncstandby","db-syncstandby2")
+        track_activities: "on"
+        track_counts: "on"
+        track_io_timing: "on"
+        track_functions: "all"
+        wal_compression: "on"
+        wal_log_hints: "on"
+        log_checkpoints: "on"
+        log_lock_waits: "on"
+        log_temp_files: 0
+        log_autovacuum_min_duration: 0
+
+      pg_hba:
+      - local all all peer
+      - host all zeus 127.0.0.1/32 trust
+      - host all zeus 46.101.53.213/32 scram-sha-256
+      - host all zeus 178.128.42.130/32 scram-sha-256
+      - host all zeus 46.101.84.31/32 trust
+      - host replication replicauser 127.0.0.1/32 scram-sha-256
+      - host replication replicauser 46.101.84.31/32 scram-sha-256
+      - host replication replicauser 46.101.53.213/32 scram-sha-256
+      - host replication replicauser 178.128.42.130/32 scram-sha-256
+
+  initdb:
+  - encoding: UTF8
+  - data-checksums
+
+  users:
+    zeus:
+      password: ar3y0uG0d?
+      options:
+      - createrole
+      - createdb
+
+    replicauser:
+      password: r3pl!c@
+      options:
+      - replication
+
+    postgres:
+      password:
+      options:
+      - superuser
+
+postgresql:
+  listen: 0.0.0.0:5432
+  connect_address: 46.101.53.213:5432
+  data_dir: /var/lib/pgsql/11/data
+  config_dir: /var/lib/pgsql/11/data
+  pgpass: /var/lib/pgsql/.pgpass
+  bin_dir: /usr/pgsql-11/bin
+
+  authentication:
+    replication:
+      username: replicauser
+      password: r3pl!c@
+    superuser:
+      username: zeus
+      password: ar3y0uG0d?
+
+  parameters:
+    random_page_cost: 2.0
+    unix_socket_directories: "/var/run/postgresql, /tmp"
+
+tags:
+  nofailover: false
+  noloadbalance: false
+  clonefrom: false
+  nosync: false
