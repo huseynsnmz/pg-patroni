@@ -4,6 +4,14 @@
 # etcd ve haproxy ayarlarını düzenle ve geliştir
 # trust lardan kurtulmaya çalış
 # Belge son haline geldiğinde IP'leri kaldır.
-# pgbouncer ekle
-# haproxy master ve replika böl
 # https://www.linode.com/docs/databases/postgresql/create-a-highly-available-postgresql-cluster-using-patroni-and-haproxy/
+
+
+
+callbacks: callback scripts to run on certain actions. Patroni will pass the action, role and cluster name. (See scripts/aws.py as an example of how to write them.)
+
+        on_reload: run this script when configuration reload is triggered.
+        on_restart: run this script when the cluster restarts.
+        on_role_change: run this script when the cluster is being promoted or demoted.
+        on_start: run this script when the cluster starts.
+        on_stop: run this script when the cluster stops.
