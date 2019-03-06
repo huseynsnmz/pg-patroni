@@ -1,3 +1,12 @@
+# haproxy için ve pgbouncer için servis ekle consul'a
+# tag ekle yukarıdakileri için
+# acl muhabbetini yap
+# consul-template oluştur haproxy ve pgbouncer için
+
+
+
+
+
 pip install patroni[consul]
 
 CONSUL SUNUCUSU:
@@ -52,3 +61,4 @@ vi /etc/patroni/patroni.yml
 
 consul:
   host: 138.68.137.54:8500
+  register_service: true

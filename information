@@ -31,6 +31,12 @@ It is not really possible to merge pg_hba from different sources, because rules 
 ------------------------------------------
 
 
+
+At Honeybadger.io we use patroni + pgbouncer + consul-template for this. Patroni handles the failover and updates consul, and consul-template then updates pgbouncer.ini and reloads pgbouncer. All the applications use pgbouncer for the database connection, so nothing changes as far as the applications are concerned.
+
+This method doesn't use a floating IP; rather, it papers over the IP change with the pgbouncer proxy.
+
+
 # -----------------------------------------------------------------------------
 # FRONTEND - BACKEND
 # -----------------------------------------------------------------------------
