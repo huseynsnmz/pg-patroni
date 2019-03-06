@@ -1,5 +1,4 @@
 # patroni_env.conf > parolalar bu alana taşınmalı mı?
-# Parametreleri anlat
 # patroni.yml ayarlarını geliştir > Bağlantıları otomatik SSL oluşturmaya çalışacağım.
 # etcd ve haproxy ayarlarını düzenle ve geliştir
 # trust lardan kurtulmaya çalış
@@ -7,6 +6,7 @@
 # https://www.linode.com/docs/databases/postgresql/create-a-highly-available-postgresql-cluster-using-patroni-and-haproxy/
 
 
+Your existing configuration of HAProxy -> PGBouncer -> PGServer approch is better. And that only works. Here is the reason: HAProxy redirects connection to different servers. this results in MAC address change in the database connection. So if PGBouncer is above HAProxy, each time the connections in the pool gets invalidated because of MAC address change
 
 callbacks: callback scripts to run on certain actions. Patroni will pass the action, role and cluster name. (See scripts/aws.py as an example of how to write them.)
 
@@ -15,3 +15,54 @@ callbacks: callback scripts to run on certain actions. Patroni will pass the act
         on_role_change: run this script when the cluster is being promoted or demoted.
         on_start: run this script when the cluster starts.
         on_stop: run this script when the cluster stops.
+
+
+        etcd:
+          host: "etcd:2379"
+          scope: system-db
+          ttl: 15
+        postgresql:
+          scope: system-db
+          name: 49299a830858
+          listen: 0.0.0.0:5432
+          connect_address: "49299a830858:5432"
+          data_dir: /var/lib/pgsql/9.6/data
+          parameters:
+            ssl: on
+            ssl_cert_file: /etc/postgresql/tls/server.crt
+            ssl_key_file: /etc/postgresql/tls/server.key
+
+
+            Oh!
+
+          Actually it's probably even more simple than that and doesn't even require to have the new key in DCS.
+
+          We already have bootstrap section in the configuration file, where we can put some initdb arguments, add lines to pg_hba.conf, create users and populate /config key in DCS.
+
+          So we can just extend this section:
+
+          bootstrap:
+            method: my_bootstrap_method  # if there is no `method` defined - use initdb
+
+            my_bootstrap_method:
+              command: /my_bootstrap_command.sh
+              recovery_conf:
+                restore_command: '/my_restore_command.sh %f %p'
+                recovery_target_action: promote  # should we enforce it?
+          #      recovery_target_name:
+          #      recovery_target_time:
+          #      recovery_target_xid:
+          #      recovery_target_inclusive:
+          #      recovery_target_timeline: latest
+
+
+          postgresql:
+    create_replica_methods:
+        - pgbackrest
+        - basebackup
+    pgbackrest:
+        command: /usr/bin/pgbackrest --stanza=<scope> --delta restore
+        keep_data: True
+        no_params: True
+    basebackup:
+        max-rate: '100M'

@@ -11,8 +11,8 @@ restapi:
 
 etcd:
   host: 138.68.137.54:2379
-#   username:
-#   password:
+  username: root
+  password: 123qweasd
 
 bootstrap:
   dcs:
