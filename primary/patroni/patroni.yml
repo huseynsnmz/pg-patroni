@@ -9,10 +9,14 @@ restapi:
   listen: 0.0.0.0:8008
   connect_address: 178.128.42.130:8008
 
-etcd:
-  host: 138.68.137.54:2379
-  username: root
-  password: 123qweasd
+#etcd:
+#  host: 138.68.137.54:2379
+#  username:
+#  password:
+
+consul:
+  host: 138.68.137.54:8500
+  register_service: true
 
 bootstrap:
   dcs:

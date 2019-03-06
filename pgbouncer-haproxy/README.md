@@ -1,3 +1,16 @@
+--------------------------------------------------
+CONSUL-TEMPLATE
+--------------------------------------------------
+wget https://releases.hashicorp.com/consul-template/0.20.0/consul-template_0.20.0_linux_amd64.zip
+unzip consul-template_0.20.0_linux_amd64.zip
+mv consul-template /usr/bin/
+
+mkdir /etc/consul-template.d
+
+--------------------------------------------------
+PGBOUNCER
+--------------------------------------------------
+
 yum install https://download.postgresql.org/pub/repos/yum/11/redhat/rhel-7-x86_64/pgdg-centos11-11-2.noarch.rpm -y
 yum install postgresql11-server postgresql11-contrib pgbouncer -y
 
@@ -27,3 +40,7 @@ touch 600 /etc/pgbouncer/userlist.txt
 
 
 systemctl enable --now pgbouncer.service
+
+--------------------------------------------------
+HAPROXY
+--------------------------------------------------

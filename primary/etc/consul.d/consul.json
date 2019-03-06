@@ -1,0 +1,11 @@
+{
+  "node_name": "consul-b",
+  "bootstrap": false,
+  "data_dir": "/var/lib/consul",
+  "server": true,
+  "bind_addr": "178.128.42.130",
+  "bootstrap_expect": 3,
+  "ui": true,
+  "client_addr": "0.0.0.0",
+  "start_join": ["138.68.137.54","46.101.53.213"]
+}
