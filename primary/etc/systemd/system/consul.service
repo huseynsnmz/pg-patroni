@@ -1,0 +1,34 @@
+[Unit]
+Description=Consul Startup process
+After=network.target
+
+[Service]
+User=root
+Group=root
+Type=simple
+ExecStart=/usr/bin/consul agent -config-dir /etc/consul.d/ -log-file=/var/log/consul/consul.log'
+TimeoutStartSec=0
+
+[Install]
+WantedBy=default.target
+
+
+[Unit]
+Description=Consul Service Discovery Agent
+Documentation=https://www.consul.io/
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+ExecStart=/usr/bin/consul agent -config-dir /etc/consul.d/ -log-file=/var/log/consul/consul.log'
+
+ExecReload=/bin/kill -HUP $MAINPID
+KillSignal=SIGINT
+TimeoutStopSec=5
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

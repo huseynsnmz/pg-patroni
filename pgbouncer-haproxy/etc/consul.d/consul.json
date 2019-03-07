@@ -1,0 +1,44 @@
+{
+  "node_name": "consul-a",
+  "advertise_addr": "138.68.133.92",
+  "bind_addr": "138.68.133.92",
+  "bootstrap_expect": 3,
+  "client_addr": "0.0.0.0",
+  "datacenter": "dc1",
+  "data_dir": "/var/lib/consul",
+  "encrypt": "bnRHLmJ6TeLomirgEOWP2g==",
+  "log_level": "INFO",
+  "server": true,
+  "ui": true,
+  "enable_local_script_checks": true,
+  "leave_on_terminate": true,
+  "rejoin_after_leave": true,
+  "retry_join": ["138.68.133.92","178.128.42.130","46.101.53.213"],
+  "start_join": ["138.68.133.92","178.128.42.130","46.101.53.213"],
+}
+
+systemctl start consul
+
+
+[root@consul consul-template.d]# consul acl bootstrap
+AccessorID:   4d6a320d-0992-a2d1-69b2-16d888138517
+SecretID:     e77b454d-86a0-3bae-05c5-f01ff3fb07b8
+Description:  Bootstrap Token (Global Management)
+Local:        false
+Create Time:  2019-03-06 21:13:14.579849065 +0000 UTC
+Policies:
+   00000000-0000-0000-0000-000000000001 - global-management
+
+
+consul members -token "e77b454d-86a0-3bae-05c5-f01ff3fb07b8"
+export CONSUL_HTTP_TOKEN=e77b454d-86a0-3bae-05c5-f01ff3fb07b8
+
+
+[root@consul consul-template.d]# consul acl token create -description "Agent Token" -policy-name "agent-policy"
+AccessorID:   71b191c0-b80c-bcd2-b445-5b862a651de8
+SecretID:     0c9b57dc-819b-c12e-f427-4f4ae790867a
+Description:  Agent Token
+Local:        false
+Create Time:  2019-03-06 21:19:27.516241373 +0000 UTC
+Policies:
+   885c598f-bc76-4705-ee8d-3203810c60db - agent-policy

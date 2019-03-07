@@ -15,7 +15,7 @@ restapi:
 #  password:
 
 consul:
-  host: 138.68.137.54:8500
+  host: 127.0.0.1:8500
   register_service: true
 
 bootstrap:
