@@ -20,25 +20,38 @@
 systemctl start consul
 
 
-[root@consul consul-template.d]# consul acl bootstrap
-AccessorID:   4d6a320d-0992-a2d1-69b2-16d888138517
-SecretID:     e77b454d-86a0-3bae-05c5-f01ff3fb07b8
+consul acl bootstrap
+AccessorID:   22f67b6c-25b1-72bd-2fdd-14c349fe1b31
+SecretID:     84b6c1fd-ea78-9f27-3ec6-fc73649ad597
 Description:  Bootstrap Token (Global Management)
 Local:        false
-Create Time:  2019-03-06 21:13:14.579849065 +0000 UTC
+Create Time:  2019-03-08 21:39:10.750234731 +0000 UTC
 Policies:
    00000000-0000-0000-0000-000000000001 - global-management
 
 
-consul members -token "e77b454d-86a0-3bae-05c5-f01ff3fb07b8"
-export CONSUL_HTTP_TOKEN=e77b454d-86a0-3bae-05c5-f01ff3fb07b8
+consul acl policy create -name "agent-policy" -description "Agent Policy" -rules @policies/agent-policy.hcl -valid-datacenter dc1 -token "84b6c1fd-ea78-9f27-3ec6-fc73649ad597"
+ID:           826e1161-5964-769c-207a-83d43ee5ad34
+Name:         agent-policy
+Description:  Agent Policy
+Datacenters:  dc1
+Rules:
+node_prefix "" {
+   policy = "write"
+}
+service_prefix "consul" {
+   policy = "read"
+}
 
 
-[root@consul consul-template.d]# consul acl token create -description "Agent Token" -policy-name "agent-policy"
-AccessorID:   71b191c0-b80c-bcd2-b445-5b862a651de8
-SecretID:     0c9b57dc-819b-c12e-f427-4f4ae790867a
+consul acl token create -description "Agent Token" -policy-name "agent-policy" -token "84b6c1fd-ea78-9f27-3ec6-fc73649ad597"
+AccessorID:   e848adec-eb13-c981-52d9-0e0eafe540db
+SecretID:     80e89aae-435c-b702-fa64-1c08597fbd54
 Description:  Agent Token
 Local:        false
-Create Time:  2019-03-06 21:19:27.516241373 +0000 UTC
+Create Time:  2019-03-08 22:01:35.195614243 +0000 UTC
 Policies:
-   885c598f-bc76-4705-ee8d-3203810c60db - agent-policy
+   826e1161-5964-769c-207a-83d43ee5ad34 - agent-policy
+
+consul acl policy create -name 'list-all-nodes' -rules 'node_prefix "" { policy = "read" }'
+consul acl token update -id 00000000-0000-0000-0000-000000000002 -policy-name list-all-nodes -description "Anonymous Token - Can List Nodes"
