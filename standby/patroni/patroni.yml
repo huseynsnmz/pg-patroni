@@ -28,6 +28,7 @@ bootstrap:
     postgresql:
       use_pg_rewind: true
       use_slots: true
+      remove_data_directory_on_rewind_failure: true
       parameters:
         password_encryption: "scram-sha-256"
         log_line_prefix: "< user=%u db=%d host=%h pid=%p app=%a time=%m > "

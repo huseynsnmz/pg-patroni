@@ -1,3 +1,6 @@
+  "comment": "# yedek sunucusuna patroni ekle ve "enable_key_list": enabled  aktif et"
+
+
 {
   "node_name": "consul-a",
   "advertise_addr": "138.68.133.92",
@@ -17,6 +20,34 @@
   "start_join": ["138.68.133.92","178.128.42.130","46.101.53.213"],
 }
 
+
+{
+  "node_name": "consul-a",
+  "advertise_addr": "138.68.133.92",
+  "bind_addr": "138.68.133.92",
+  "bootstrap_expect": 1,
+  "client_addr": "0.0.0.0",
+  "datacenter": "dc1",
+  "data_dir": "/var/lib/consul",
+  "encrypt": "bnRHLmJ6TeLomirgEOWP2g==",
+  "log_level": "INFO",
+  "server": true,
+  "ui": true,
+  "enable_local_script_checks": true,
+  "leave_on_terminate": true,
+  "rejoin_after_leave": true,
+  "acl": {
+    "enabled": true,
+    "default_policy": "deny",
+    "down_policy": "extend-cache",
+    "tokens": {
+      "default": "84b6c1fd-ea78-9f27-3ec6-fc73649ad597",
+      "agent": "80e89aae-435c-b702-fa64-1c08597fbd54"
+    }
+  }
+}
+
+
 systemctl start consul
 
 
@@ -30,28 +61,8 @@ Policies:
    00000000-0000-0000-0000-000000000001 - global-management
 
 
-consul acl policy create -name "agent-policy" -description "Agent Policy" -rules @policies/agent-policy.hcl -valid-datacenter dc1 -token "84b6c1fd-ea78-9f27-3ec6-fc73649ad597"
-ID:           826e1161-5964-769c-207a-83d43ee5ad34
-Name:         agent-policy
-Description:  Agent Policy
-Datacenters:  dc1
-Rules:
-node_prefix "" {
-   policy = "write"
-}
-service_prefix "consul" {
-   policy = "read"
-}
+consul acl policy create -name "consul-agent" -description "Consul Agent Policy" -rules @/etc/consul.d/policies/consul-agent.hcl -valid-datacenter dc1 -token "84b6c1fd-ea78-9f27-3ec6-fc73649ad597"
+consul acl policy create -name "patroni" -description "Patroni Policy" -rules @/etc/consul.d/policies/patroni.hcl -valid-datacenter dc1 -token "84b6c1fd-ea78-9f27-3ec6-fc73649ad597"
 
-
-consul acl token create -description "Agent Token" -policy-name "agent-policy" -token "84b6c1fd-ea78-9f27-3ec6-fc73649ad597"
-AccessorID:   e848adec-eb13-c981-52d9-0e0eafe540db
-SecretID:     80e89aae-435c-b702-fa64-1c08597fbd54
-Description:  Agent Token
-Local:        false
-Create Time:  2019-03-08 22:01:35.195614243 +0000 UTC
-Policies:
-   826e1161-5964-769c-207a-83d43ee5ad34 - agent-policy
-
-consul acl policy create -name 'list-all-nodes' -rules 'node_prefix "" { policy = "read" }'
-consul acl token update -id 00000000-0000-0000-0000-000000000002 -policy-name list-all-nodes -description "Anonymous Token - Can List Nodes"
+consul acl token create -description "primary" -policy-name "patroni-policy" -token "84b6c1fd-ea78-9f27-3ec6-fc73649ad597"
+consul acl token create -description "standby" -policy-name "patroni-policy" -token "84b6c1fd-ea78-9f27-3ec6-fc73649ad597"
