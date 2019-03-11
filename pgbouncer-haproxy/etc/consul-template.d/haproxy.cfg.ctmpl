@@ -1,35 +1,33 @@
 global
-    daemon
-    maxconn {{key "service/haproxy/maxconn"}}
+  maxconn 100
 
 defaults
-    mode {{key "service/haproxy/mode"}}{{range ls "service/haproxy/timeouts"}}
-    timeout {{.Key}} {{.Value}}{{end}}
+  log global
+  mode tcp
+  retries 2
+  timeout client 30m
+  timeout connect 4s
+  timeout server 30m
+  timeout check 5s
 
-listen http-in
-    bind *:8000{{range service "release.web"}}
-    server {{.Node}} {{.Address}}:{{.Port}}{{end}}
+listen stats
+  mode http
+  bind *:7000
+  stats enable
+  stats uri /stats
+  stats realm Strictly\ Private
+  stats auth root:123qweasd
 
-    defaults
-      log global
-      mode tcp
-      retries 2
-      timeout client 30m
-      timeout connect 4s
-      timeout server 30m
-      timeout check 5s
+listen primary
+  bind *:5000
+  option httpchk OPTIONS /master
+  http-check expect status 200
+  default-server inter 3s fall 3 rise 2 on-marked-down shutdown-sessions
+  {{$leader := key "service/postgres/leader"}}{{range ls "service/postgres/members"}}{{if eq .Key $leader}}server {{.Key}}{{$data :=  .Value | parseJSON}} {{index ($data.conn_url | split "/") 2}} maxconn 100 check port {{index ((index ($data.api_url | split "/") 2) | split ":") 1}}{{end}}{{end}}
 
-    listen stats
-      mode http
-      bind *:7000
-      stats enable
-      stats uri /stats
-      stats realm Strictly\ Private
-      stats auth root:123qweasd
-
-    listen postgres
-      bind *:5000
-      option httpchk
-      http-check expect status 200
-      default-server inter 3s fall 3 rise 2 on-marked-down shutdown-sessions{{range service "postgres"}}
-      server {{.Node}} {{.Address}}:{{.Port}}{{end}}
+listen replicas
+  bind *:5001
+  option httpchk OPTIONS /replica
+  http-check expect status 200
+  default-server inter 3s fall 3 rise 2 on-marked-down shutdown-sessions
+  {{$leader := key "service/postgres/leader"}}{{range ls "service/postgres/members"}}{{if ne .Key $leader}}server {{.Key}}{{$data :=  .Value | parseJSON}} {{index ($data.conn_url | split "/") 2}} maxconn 100 check port {{index ((index ($data.api_url | split "/") 2) | split ":") 1}}{{end}}{{end}}

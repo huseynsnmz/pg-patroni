@@ -17,6 +17,7 @@ restapi:
 consul:
   host: 127.0.0.1:8500
   register_service: true
+#  token:
 
 bootstrap:
   dcs:

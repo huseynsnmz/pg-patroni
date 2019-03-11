@@ -5,6 +5,7 @@
 # consul acl testi
 # patroni callback scripti
 # pgbouncer consul-template şeması
+# rollere comment koy COMMENT ON ROLE zeus IS '....'
 
 
 Your existing configuration of HAProxy -> PGBouncer -> PGServer approch is better. And that only works. Here is the reason: HAProxy redirects connection to different servers. this results in MAC address change in the database connection. So if PGBouncer is above HAProxy, each time the connections in the pool gets invalidated because of MAC address change

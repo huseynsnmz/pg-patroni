@@ -1,12 +1,9 @@
 node_prefix "" {
   policy = "read"
 }
-node_prefix "consul" {
+node "consul-a" {
   policy = "write"
 }
 service_prefix "" {
   policy = "read"
-}
-service "postgres" {
-  policy = "write"
 }
